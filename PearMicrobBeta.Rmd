@@ -1,0 +1,630 @@
+---
+title: "Pear microbial communities!"
+author: "Vera Pfeiffer"
+date: "May 24, 2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Pear flower microbial community project 
+
+
+Microbial communities are interesting and diverse. Some are important pathogens and some promote good plant health.  
+
+
+Orchard microbial communities are influenced by spatial structure (stochastic processes), environmental factors as well as farm management practices (i.e., deterministic processes).
+
+Here we consider the stochastic and deterministic factors that underly microbial community richness and evenness (alpha diversity) as well as community turnover (beta diversity), and we investigate specific microbes of interest in pear cultivation. We partition beta diversity to seperately investigate the influence of stochastic and deterministic processes on abundance driven turnover compared to taxa assemblage related turnover.
+
+Main Messages:
+1. Bacteria communities are influenced by farm managment as well as surrounding agricultural land use (Multivariate regression and model selection)
+
+2. Fungal communities are influenced by farm managment practices as well as environmental variables (Multivariate regression and model selection)
+
+3. There is not a strong influence of spatial patterning in our main pathogens and commensals of interest (1st approach - correlograms; 2nd approach - spatial regression)
+
+4. Community turnover (partitioned between abundance and species differences) was influenced by XXX for bacteria (not very spatial...)
+
+5. Community turnover (partitioned between abundance and species differences) was influenced by XXX for fungus (very not spatial...)
+
+
+
+## Pear flower microbial community project data analysis
+
+David Crowder's postdoc Robert Schaeffer collected some data on microbial communities on flowers in pear orchards as part of his work in the Crowder lab. The study looked at microbe communities in the interior and edges of 15 orchards, with variation in management (conventional vs organic). 
+
+Here, we are checking out some additional climate and land cover variables to see if they might be able to elucidate relationships between the climate/landscape, as well as farm management and alpha diversity of microbial communities.
+
+Data: This initial dataset includes a number of alpha diversity metrics for each pear orchard, bacteria and fungi separately. Coordinates are given for each, along with management scheme, where the sample was taken (interior or edge of orchard), as well as orchard acreage.
+
+There are a lot of alpha diversity metrics here, so I focus on the "observed" alpha diversity, the Shannon diversity, and the inverse Simpson index, which indicates lack of dominance.
+
+Shannon = combo of richness and evenness
+Simpson = probability that two entities taken at random represent the same type
+
+
+```{r, include = FALSE}
+library(dplyr)
+library(tidyr)
+library(GGally)
+library(ggplot2)
+library(MuMIn) #dredge and avgcoef
+library(car) #vif
+library(MASS) #stepAIC
+library(vegan)
+```
+ 
+ 
+
+```{r , include = FALSE, error = FALSE, warning=FALSE}
+pbac<-read.csv("pearbacteriadata.csv")
+pfun<-read.csv("pearfungaldata.csv")
+summary(pbac)
+summary(pfun)
+
+bacAD<-pbac[,c(2,3,5,7,8,9,10)]
+funAD<-pfun[,c(2,3,5,7,8,9,10)]
+
+bacLoc<-pbac[,c(2,7,9,12)]
+funLoc<-pfun[,c(2,7,9,12)]
+
+bacMan<-pbac[,c(2,7,9,13)]
+funMan<-pfun[,c(2,7,9,13)]
+
+bacAcr<-pbac[,c(2,7,9,16)]
+funAcr<-pfun[,c(2,7,9,16)]
+
+Clim<-pbac[,c(17,19,20,21,22,23)]
+Land<-pbac[,c(17,24,25,26)]
+
+BacClim<-pbac[,c(2,7,9,19,20,21,22,23)]
+FunClim<-pfun[,c(2,7,9,19,20,21,22,23)]
+
+BacLand<-pbac[,c(2,7,9,17,24,25,26)]
+FunLand<-pfun[,c(2,7,9,17,24,25,26)]
+```
+
+
+## "Let's check out these alpha diversity stats..."
+
+It seems like 'observed alpha diversity', 'chao1', 'ace', and to a lesser degree 'fisher' provide similar information.  So we'll focus on 'Shannon' diversity considering richenss and evenness, and the 'inverse Simpson' index, describing a lack of dominance in the rest of this analysis.
+
+```{r , error = FALSE, warning=FALSE}
+ggpairs(bacAD)
+ggpairs(funAD)
+
+ggpairs(bacLoc)
+ggpairs(funLoc)
+
+ggpairs(bacMan)
+ggpairs(funMan)
+```
+
+It looks like the alpha diversity didn't change much between the edge and interior locations.
+
+It's interesting that the organic farms seem to have lower bacterial 'Shannon' diversity and 'inverse Simpson' lack of dominance, while the organic farms may also have a tiny bit higher fungal diversity than especially compared to the soft management.
+
+
+```{r , error = FALSE, warning=FALSE}
+ggpairs(bacAcr)
+ggpairs(funAcr)
+```
+
+
+
+## Climate variables
+
+Here are some climate variables for the sites, from Prism data downloaded at a 4km resolution for April 2017. The climate variables include elevation, precipitation, min and max temperature, and min and max VPD. VPD is the difference (deficit) between the amount of moisture in the air and how much moisture the air can hold when it is saturated. So when it's low, the air is saturated, and once air becomes saturated, water will condense out to form clouds, dew, or films of water over leaves. 
+
+```{r , error = FALSE, warning=FALSE}
+ggpairs(Clim)
+```
+
+So it seems the higher sites have lower maximum temps, also lower maximum VPD and higher minimum VPD.
+
+There are a few mid elevation sites with higher precipitation, and lower minimum temperature (perhaps cold air drains? this is just April 2017)
+
+## Landscape variables
+
+Here are three land cover variables extracted in the 500m buffers surrounding sites from the USDA croplands dataset (2017). We focus on pear cultivation, other fruit crops (Cherries and apples combined), and forest cover.
+
+```{r , error = FALSE, warning=FALSE}
+ggpairs(Land)
+```
+
+These sites are all in a corridor with extensive pear cultivation. At sites surrounded by more pear cultivation, there's a higher chance of other fruit crop cultivation (cherries and apples) as well. At sites with more surrounding forest, there is only pear.
+
+## Climate, landscape, and microbe diversity
+
+hmmmmm... maybe there is higher bacteria diversity where there is less precipitation and lower min VPD.  Perhaps bacteria are washed away at low min VPD sites?
+
+```{r , error = FALSE, warning=FALSE}
+ggpairs(BacClim)
+ggpairs(FunClim)
+```
+
+also, perhaps there's higher fungal diversity when there is more precipitation, and higher lower min temps...
+
+```{r , error = FALSE, warning=FALSE}
+ggpairs(BacLand)
+ggpairs(FunLand)
+```
+
+Those more forested sites have a bit less bacterial diversity, and a bit more fungal diversity.
+
+## Multiple variate regression models 
+
+Now for some multiple regression models that measure the influence of management on Shannon diversity, while controlling for the climate and land cover variables as well. 
+
+### Bacterial community shannon diversity models
+
+The shannon diversity distribution looks good, so I use variance inflation factors to eliminate issues with multicollinearity and get rid of variables that explain the most repetitive variance. Then compare the full model results with a stepwise AIC selection for a most parsimonious version, and calculate the multi-model average coefficients from the 95% confidence subset, and <4 change in AICc subset.
+
+```{r}
+qqp(as.numeric(pbac$shannon), "norm")
+
+mod1<-lm(shannon ~ management + Precip + MinT + MaxT + VPDmin + VPDmax + PropFor + PropPear + PropFruit, na.action= "na.fail", data = pbac)
+
+summary(mod1)
+vif(mod1)
+mod1<-lm(shannon ~ as.factor(management) + Precip + MinT + VPDmin + VPDmax + PropFor + PropPear + PropFruit, na.action= "na.fail", data = pbac)
+vif(mod1)
+mod1<-lm(shannon ~ management + Precip + VPDmin + VPDmax + PropFor + PropPear + PropFruit, na.action= "na.fail", data = pbac)
+vif(mod1)
+mod1<-lm(shannon ~ management + VPDmin + VPDmax + PropFor + PropPear + PropFruit, na.action= "na.fail", data = pbac)
+vif(mod1)
+
+summary(mod1)
+stepAIC(mod1)
+mod1step<-lm(shannon ~ management + PropFor + PropFruit, na.action= "na.fail", data = pbac)
+summary(mod1step)
+
+modsel<-dredge(mod1,beta = c("none"), rank = "AICc")
+avgcoef<-model.avg(modsel, cumsum(weight) <= .95)
+avgcoef
+avgcoef<-model.avg(modsel, subset = delta < 4)
+avgcoef
+
+mod1a<-lm(shannon ~ management + Precip + MinT + MaxT+ VPDmin + VPDmax, na.action= "na.fail", data = pbac)
+vif(mod1a)
+summary(mod1a)
+mod1a<-lm(shannon ~ management + Precip + MinT + VPDmin + VPDmax, na.action= "na.fail", data = pbac)
+vif(mod1a)
+mod1a<-lm(shannon ~ management + Precip + VPDmin + VPDmax, na.action= "na.fail", data = pbac)
+vif(mod1a)
+stepAIC(mod1a)
+mod1astep<-lm(shannon ~ management + Precip + VPDmin + VPDmax, na.action= "na.fail", data = pbac)
+summary(mod1astep)
+
+
+mod1b<-lm(shannon ~ management + PropFor + PropPear + PropFruit, na.action= "na.fail", data = pbac)
+vif(mod1b)
+summary(mod1b)
+stepAIC(mod1b)
+
+```
+### Fungal community Shannon diversity models
+```{r}
+qqp(as.numeric(pfun$shannon), "norm")
+mod2<-lm(shannon ~ management + Precip + MinT + MaxT + VPDmin + VPDmax + PropFor + PropPear+ PropFruit, na.action= "na.fail", data = pfun)
+summary(mod2)
+vif(mod2)
+mod2<-lm(shannon ~ management + Precip + MinT + VPDmin + VPDmax + PropFor + PropPear+ PropFruit, na.action= "na.fail", data = pfun)
+vif(mod2)
+mod2<-lm(shannon ~ management + Precip + VPDmin + VPDmax + PropFor + PropPear+ PropFruit, na.action= "na.fail", data = pfun)
+vif(mod2)
+mod2<-lm(shannon ~ management + VPDmin + VPDmax + PropFor + PropPear+ PropFruit, na.action= "na.fail", data = pfun)
+vif(mod2)
+
+summary(mod2)
+stepAIC(mod2)
+mod2step<-lm(shannon ~ management + VPDmax + PropFruit, na.action= "na.fail", data = pfun)
+summary(mod2step)
+
+modsel2<-dredge(mod2, beta = c("none"), rank = "AICc")
+avgcoef2<-model.avg(modsel2, cumsum(weight) <= .95)
+avgcoef2
+avgcoef2<-model.avg(modsel2, subset = delta < 4)
+avgcoef2
+
+mod2a<-lm(shannon ~ management + Precip + MinT + MaxT+ VPDmin + VPDmax, na.action= "na.fail", data = pfun)
+vif(mod2a)
+summary(mod2a)
+mod2a<-lm(shannon ~ management + Precip + MinT + VPDmin + VPDmax, na.action= "na.fail", data = pfun)
+vif(mod2a)
+mod2a<-lm(shannon ~ management + Precip + VPDmin + VPDmax, na.action= "na.fail", data = pfun)
+vif(mod2a)
+stepAIC(mod2a)
+
+mod2b<-lm(shannon ~ management + PropFor + PropPear + PropFruit, na.action= "na.fail", data = pfun)
+vif(mod2b)
+summary(mod2b)
+stepAIC(mod2b)
+```
+
+These model results seem to represent the trends we could see in the scatter plots well... 
+
+Now, I'll try to throw the Simpson dominance analysis in here too... 
+
+
+### Bacterial community Simpson dominance models
+
+The Simpson distribution also looks pretty normal, so I use variance inflation factors to eliminate issues with multicollinearity and get rid of variables that explain the most repetitive variance. Then compare the full model results with a stepwise AIC selection for a most parsimonious version, and calculate the multi-model average coefficients from the 95% confidence subset, and <4 change in AICc subset.
+
+```{r}
+qqp(as.numeric(pbac$simpson), "norm")
+#qqp(as.numeric(pbac$simpson), "lnorm")
+#nbinom <- fitdistr(as.numeric(pbac$simpson), "Negative Binomial")
+#qqp(as.numeric(pbac$simpson), "nbinom", size = nbinom$estimate[[1]], mu = nbinom$estimate[[2]])
+
+mod1<-lm(simpson ~ management + Precip + MinT + MaxT + VPDmin + VPDmax + PropFor + PropPear + PropFruit, na.action= "na.fail", data = pbac)
+
+summary(mod1)
+vif(mod1)
+mod1<-lm(simpson ~ as.factor(management) + Precip + MinT + VPDmin + VPDmax + PropFor + PropPear + PropFruit, na.action= "na.fail", data = pbac)
+vif(mod1)
+mod1<-lm(simpson ~ management + Precip + VPDmin + VPDmax + PropFor + PropPear + PropFruit, na.action= "na.fail", data = pbac)
+vif(mod1)
+mod1<-lm(simpson ~ management + VPDmin + VPDmax + PropFor + PropPear + PropFruit, na.action= "na.fail", data = pbac)
+vif(mod1)
+
+summary(mod1)
+stepAIC(mod1)
+mod1step<-lm(simpson ~ management + PropFor + PropFruit, na.action= "na.fail", data = pbac)
+summary(mod1step)
+
+modsel<-dredge(mod1,beta = c("none"), rank = "AICc")
+avgcoef<-model.avg(modsel, cumsum(weight) <= .95)
+avgcoef
+avgcoef<-model.avg(modsel, subset = delta < 4)
+avgcoef
+
+```
+### Fungal community Simpson dominance models
+```{r}
+qqp(as.numeric(pfun$simpson), "norm")
+#qqp(as.numeric(pfun$simpson), "lnorm")
+#nbinom <- fitdistr(as.numeric(pfun$simpson), "Negative Binomial")
+#qqp(as.numeric(pfun$simpson), "nbinom", size = nbinom$estimate[[1]], mu = nbinom$estimate[[2]])
+
+mod2<-lm(simpson ~ management + Precip + MinT + MaxT + VPDmin + VPDmax + PropFor + PropPear+ PropFruit, na.action= "na.fail", data = pfun)
+summary(mod2)
+vif(mod2)
+mod2<-lm(simpson ~ management + Precip + MinT + VPDmin + VPDmax + PropFor + PropPear+ PropFruit, na.action= "na.fail", data = pfun)
+vif(mod2)
+mod2<-lm(simpson ~ management + Precip + VPDmin + VPDmax + PropFor + PropPear+ PropFruit, na.action= "na.fail", data = pfun)
+vif(mod2)
+mod2<-lm(simpson ~ management + VPDmin + VPDmax + PropFor + PropPear+ PropFruit, na.action= "na.fail", data = pfun)
+vif(mod2)
+
+summary(mod2)
+stepAIC(mod2)
+mod2step<-lm(simpson ~ management + VPDmin + VPDmax, na.action= "na.fail", data = pfun)
+summary(mod2step)
+
+modsel2<-dredge(mod2, beta = c("none"), rank = "AICc")
+avgcoef2<-model.avg(modsel2, cumsum(weight) <= .95)
+avgcoef2
+avgcoef2<-model.avg(modsel2, subset = delta < 4)
+avgcoef2
+
+```
+
+
+
+## "What about spatial patterns in the distribution of these bacteria and fungi..."
+
+For each sample, we have record of individual OTUs with info on their relative abundance. First, we'll
+look at autocorrelation in the distribution of some particular bacteria and fungi of interest:
+
+Fungi:
+Aureobasidium pullulans (microbe in Blossom Protect treatment for fire blight, good microbe)
+Monilinia sp. (known genus of fungal pathogens)
+Botrytis sp. (known genus of fungal pathogens)
+Mycosphaerella tassiana (linked to fruit rot, along with Cladosporium sp.)
+Penicillium aurantiogriseum (weak pathogen, causes blue mold)
+
+Bacteria:
+Erwinia amylovora (fire blight)
+Pantoea spp. (can provide protection against fire blight)
+Pseudomonas fluorescens (same)
+Bacillus subtilis (microbe in BioPro or Serenade treatments for fire blight, good microbe)
+
+Some of these are not found at most of the sites, so it probably isn't very meaningful to look at the distribution
+
+Here are the sites,
+
+```{r}
+library(sp)
+library(rgdal)
+
+layout(matrix(c(1),1,1)) # optional 16 graphs/page
+
+Orch<-readOGR(dsn="PearShpPrj", layer="PearShpPrj")
+summary(Orch)
+Mgt <- factor(Orch@data$mgmt, labels=c("red", "green", "blue"))
+plot(Orch, pch = 19, col = Mgt)
+
+```
+
+Here we're subsetting the dataset for these bacteria and fungi of interest, then checking how many 
+observations of >0.01 occur
+
+```{r}
+pbacAb<-read.csv("pearbacteriaabund.csv")
+pfunAb<-read.csv("pearfungalabund.csv")
+
+library(sp)
+library(sp)
+
+plocD<-read.csv("pearloc.csv")
+
+pbacAb<-merge(pbacAb, plocD, by.x="orchard", by.y="orchard")
+pfunAb<-merge(pfunAb, plocD, by.x="orchard", by.y="orchard")
+
+
+dim(pbacAb)
+dim(pfunAb)
+
+#summary(pbacAb)
+#summary(pfunAb)
+
+#sort(unique(pbacAb$Genus))
+#sort(unique(pbacAb$Species))
+#sort(unique(pfunAb$Genus))
+
+bacpathFB<-pbacAb[which(pbacAb$Genus=="Erwinia"),]
+nrow(bacpathFB)
+nrow(bacpathFB[which(bacpathFB$Abundance>0.01),])
+
+bacgood1<-pbacAb[which(pbacAb$Genus=="Pantoea"),]
+nrow(bacgood1)
+nrow(bacgood1[which(bacgood1$Abundance>0.01),])
+
+bacgood2<-pbacAb[which(pbacAb$Genus=="Pseudomonas"),]
+nrow(bacgood2)
+nrow(bacgood2[which(bacgood2$Abundance>0.01),])
+
+bacgood3<-pbacAb[which(pbacAb$Genus=="Bacillus"),]
+nrow(bacgood3)
+nrow(bacgood3[which(bacgood3$Abundance>0.01),])
+
+
+fungood<-pfunAb[which(pfunAb$Genus=="Aureobasidium" & pfunAb$Species=="pullulans"),] #applied
+nrow(fungood)
+nrow(fungood[which(fungood$Abundance>0.01),])
+
+funpath1<-pfunAb[which(pfunAb$Genus=="Monilinia"),]
+nrow(funpath1)
+nrow(funpath1[which(funpath1$Abundance>0.01),])
+
+funpath2<-pfunAb[which(pfunAb$Genus=="Botrytis"),]
+nrow(funpath2)
+nrow(funpath2[which(funpath2$Abundance>0.01),])
+
+funpath3<-pfunAb[which(pfunAb$Genus=="Mycosphaerella" & pfunAb$Species=="tassiana"),]
+nrow(funpath3)
+nrow(funpath3[which(funpath3$Abundance>0.01),])
+
+funpath4<-pfunAb[which(pfunAb$Genus=="Cladosporium"),]
+nrow(funpath4)
+nrow(funpath4[which(funpath4$Abundance>0.01),])
+
+funpath5<-pfunAb[which(pfunAb$Genus=="Penicillium" & pfunAb$Species=="aurantiogriseum"),]
+nrow(funpath5)
+nrow(funpath5[which(funpath5$Abundance>0.01),])
+
+```
+
+From this it seems that it might be worth looking at spatial patterns in the good bacteria, Pseudomonas (2) and Bacillus (3), as well as the fungal pathogens, Monilinia (1), Botrytis (2), Mycosphaerella tassiana (3), and Cladosporium (4).
+
+Here we calculate spatial correlograms, to see if the abundance of each pathogen is more similar at closer sites, and at what scales the patchy pattern of spatial autocorrelation might occur. So we check if the data are more similar than expected compared to the rest of the dataset at progressively longer distances (x axis)
+
+```{r}
+library(ncf)
+
+#bacgood2
+ncf.cor1 <- correlog(bacgood2$POINT_X, bacgood2$POINT_Y, bacgood2$Abundance, increment=2000, resamp=500)
+
+#bacgood3
+ncf.cor2 <- correlog(bacgood3$POINT_X, bacgood3$POINT_Y, bacgood3$Abundance, increment=2000, resamp=500)
+
+
+par(mfrow=c(1,1))
+
+plot(ncf.cor1, main="Pseudomonas (good bacteria) correlogram", xlab = "distance (m)", ylab= "correlation (Moran's I)")
+plot(ncf.cor2, main="Bacillus (good bacteria) correlogram", xlab = "distance (m)", ylab= "correlation (Moran's I)")
+```
+
+The dark circles indicate significant autocorrelation (either positive or negative), and the open circles indicate no significant difference. So it seems there is only spatial autocorrelation at very short distances <1km, then there is evidence of negative autocorrelation. However the moran's I value (ranging -1 to 1, 0 is no spatial autocorrelation) of 0.1 is also rather low, so only a small proportion of variation is explained by proximity.
+
+One thing to rememeber is that the longer lag distances are not very interpretable and less meaningful using this statistic because there are less data points separated by the longest distances across the range, and smaller scale patterns of patchiness sometimes produce "harmonics" that look like patterns at larger scales.
+
+```{r}
+#funpath1
+ncf.cor3 <- correlog(funpath1$POINT_X, funpath1$POINT_Y, funpath1$Abundance, increment=2000, resamp=500)
+
+#funpath2
+ncf.cor4 <- correlog(funpath2$POINT_X, funpath2$POINT_Y, funpath2$Abundance, increment=2000, resamp=500)
+
+#funpath3
+ncf.cor5 <- correlog(funpath3$POINT_X, funpath3$POINT_Y, funpath3$Abundance, increment=2000, resamp=500)
+
+#funpath4
+ncf.cor6 <- correlog(funpath4$POINT_X, funpath4$POINT_Y, funpath4$Abundance, increment=2000, resamp=500)
+
+par(mfrow=c(1,1))
+
+plot(ncf.cor3, main="Monilinia (fungal pathogen) correlogram", xlab = "distance (m)", ylab= "correlation (Moran's I)")
+plot(ncf.cor4, main="Botrytis (fungal pathogen) correlogram", xlab = "distance (m)", ylab= "correlation (Moran's I)")
+plot(ncf.cor5, main="Mycosphaerella tassiana (fungal pathogen) correlogram", xlab = "distance (m)", ylab= "correlation (Moran's I)")
+plot(ncf.cor6, main="Cladosporium (fungal pathogen) correlogram", xlab = "distance (m)", ylab= "correlation (Moran's I)")
+
+```
+
+Botrytis and Mycosphaerella tassiana have higher spatial autocorrelation at very short distances (<1km), so
+perhaps they are more detectable, and locally abundant when they appear.
+
+
+
+
+## 3. Now we'll look at turnover in bacteria and fungi communities across the study extent:
+
+
+```{r}
+pbacAb<-read.csv("pearbacteriaabund.csv")
+pfunAb<-read.csv("pearfungalabund.csv")
+PearXY<-read.csv("pearXY.csv")
+pearxy<-PearXY[,2:3]
+pearxy$X<-pearxy$X/1000 #converty m to km
+pearxy$Y<-pearxy$Y/1000 #converty m to km
+
+#library(tidyr)
+pbacAb2<-pbacAb[,c(3, 4, 15)]
+pfunAb2<-pfunAb[,c(3, 4, 15)]
+#BacTab<-pivot_wider(pbacAb2, names_from = Genus, values_from = Abundance)
+
+#Matching Site Column
+SampleID = paste0("X", pbacAb2$Sample)
+SampleID2 = gsub("F-","X", pfunAb2$Sample)
+
+
+pbacAb2<-cbind(as.vector(SampleID),pbacAb2[,c(2,3)])
+pfunAb2<-cbind(as.vector(SampleID2),pfunAb2[,c(2,3)])
+
+colnames(pbacAb2)[1]<-"Site"
+colnames(pfunAb2)[1]<-"Site"
+
+#Make new wide table dataframe in which each Bacteria genus is a row 
+BacTab<-xtabs(Abundance ~ Site + Genus, data = pbacAb2)
+head(BacTab)
+
+#Make new wide table dataframe in which each Bacteria genus is a row 
+FunTab<-xtabs(Abundance ~ Site + Genus, data = pfunAb2)
+head(FunTab)
+
+write.csv(BacTab, "BacTab.csv")
+write.csv(FunTab, "FunTab.csv")
+```
+
+What about beta diversity ~ microbial community turnover (beta diversity) ~
+
+We're also curious how dispersal limitation and environmental factors including surrounding agricultural land use and climatic variables influence microbial community turnover compared to the influence of farm managment on microbial communities across our study extent. First we explore the distance decay of community similarity across our sites using principle coordinates of neighborhood matrix.
+
+
+R function explanation ~
+Principal Coordinates of Neighbourhood Matrix (PCNM) map distances between rows onto rectangular matrix on rows using a truncation threshold for long distances (Borcard & Legendre 2002). If original distances were Euclidean distances in two dimensions (like normal spatial distances), they could be mapped onto two dimensions if there is no truncation of distances. Because of truncation, there will be a higher number of principal coordinates. The selection of truncation distance has a huge influence on the PCNM vectors. The default is to use the longest distance to keep data connected. The distances above truncation threshold are given an arbitrary value of 4 times threshold. For regular data, the first PCNM vectors show a wide scale variation and later PCNM vectors show smaller scale variation (Borcard & Legendre 2002), but for irregular data the interpretation is not as clear.
+
+The PCNM functions are used to express distances in rectangular form that is similar to normal explanatory variables used in, e.g., constrained ordination (rda, cca and capscale) or univariate regression (lm) together with environmental variables (row weights should be supplied with cca; see Examples). This is regarded as a more powerful method than forcing rectangular environmental data into distances and using them in partial mantel analysis (mantel.partial) together with geographic distances (Legendre et al. 2008, but see Tuomisto & Ruokolainen 2008). The function is based on pcnm function in Dray's unreleased spacemakeR package. The differences are that the current function uses spantree as an internal support function. The current function also can use prior weights for rows by using weighted metric scaling of wcmdscale. The use of row weights allows finding orthonormal PCNMs also for correspondence analysis (e.g., cca).
+
+
+PCNM - powerful tool to investigate the spatial scales of autocorrelation (Legendre, Borcard, & Peres-Neto 2008)
+https://www.rdocumentation.org/packages/vegan/versions/2.4-2/topics/pcnm
+Borcard D. and Legendre P. (2002) All-scale spatial analysis of ecological data by means of principal coordinates of neighbour matrices. Ecological Modelling 153, 51--68. Legendre, P., Bordard, D and Peres-Neto, P. (2008) Analyzing or explaining beta diversity? Comment. Ecology 89, 3238--3244.
+
+
+```{r}
+library(vegan)
+pcnm1 <- pcnm(dist(pearxy))
+op <- par(mfrow=c(3,1))
+
+
+## Map of PCNMs in the sample plot
+ordisurf(pearxy, scores(pcnm1, choi=1), bubble = 4, main = "PCNM 1")
+ordisurf(pearxy, scores(pcnm1, choi=2), bubble = 4, main = "PCNM 2")
+ordisurf(pearxy, scores(pcnm1, choi=3), bubble = 4, main = "PCNM 3")
+par(op)
+
+
+## Plot first PCNMs against each other
+ordisplom(pcnm1, choices=1:4)
+
+## Weighted PCNM for CCA
+rs <- rowSums(BacTab)/sum(BacTab)
+pcnmw <- pcnm(dist(pearxy), w = rs)
+ord <- cca(BacTab ~ scores(pcnmw))
+
+## Multiscale ordination: residual variance should have no distance
+## trend
+par(mfrow=c(1,1))
+msoplot(mso(ord, pearxy))
+```
+
+Fungal community beta diversity
+
+```{r}
+library(vegan)
+pcnm1 <- pcnm(dist(pearxy))
+op <- par(mfrow=c(3,1))
+
+
+## Map of PCNMs in the sample plot
+ordisurf(pearxy, scores(pcnm1, choi=1), bubble = 4, main = "PCNM 1")
+ordisurf(pearxy, scores(pcnm1, choi=2), bubble = 4, main = "PCNM 2")
+ordisurf(pearxy, scores(pcnm1, choi=3), bubble = 4, main = "PCNM 3")
+par(op)
+
+
+## Plot first PCNMs against each other
+ordisplom(pcnm1, choices=1:4)
+
+## Weighted PCNM for CCA
+rs <- rowSums(FunTab)/sum(FunTab)
+pcnmw <- pcnm(dist(pearxy), w = rs)
+ord <- cca(FunTab ~ scores(pcnmw))
+
+## Multiscale ordination: residual variance should have no distance
+## trend
+par(mfrow=c(1,1))
+msoplot(mso(ord, pearxy))
+```
+
+
+Next, we partition beta diversity, into overall, abundance driven, and species assemblage driven beta diversity, and use RDA to investigate the influence of deterministic processes as well as spatial structure on micribial community turnover.
+
+
+
+```{r}
+library(betapart)
+#BPbactab<-bray.part(BacTab)
+load("~/Desktop/PearMicrobes/BetaPartition.RData")
+
+tu1<-a1$bray.bal/a1$bray
+rh1<-a1$bray.gra/a1$bray
+br1<-a1$bray
+
+tu1<-a1$bray.bal
+rh1<-a1$bray.gra
+br1<-a1$bray
+
+b<-c(as.vector(tu),as.vector(tu4),as.vector(tu1),as.vector(tu3),as.vector(tu2))
+bb<-rep(c("whole","core","ra","int","abd"),each=703)
+kruskal(b,bb,p.adj="fdr",group=T,console=T)
+df<-matrix(NA,ncol=2,nrow=5)
+rownames(df)<-c("Whole","Core","Rare","Intermediate","Abundant")
+df[,1]<-c(mean(tu),mean(tu4),mean(tu1),mean(tu3),mean(tu2))
+df[,2]<-c(mean(rh),mean(rh4),mean(rh1),mean(rh3),mean(rh2))
+df<-df*100
+pdf("beta-partion.pdf",height=5,width=5.5)
+par(mar=c(5,7,2,2))
+barplot(t(df),horiz=T,col=c("grey36","grey60"),las=1,border=NA
+        ,cex.axis=1.2,cex.names=1.2,cex.lab=1.4,xlab="Proportion(%)")
+dev.off()
+cc<-c(mean(br),mean(br4),mean(br1),mean(br3),mean(br2))
+names(cc)<-c("Whole","Core","Rare","Intermediate","Abundant")
+col<-c("darkgreen","red2","darkorange","grey92","cornflowerblue")
+pdf("Beta-diversity.pdf",height=5,width=5.5)
+par(mar=c(5,7,2,2))
+barplot(cc,horiz=T,col=col,las=1,border=NA
+        ,cex.axis=1.2,cex.names=1.2,cex.lab=1.4,xlab="Beta-diversity")
+dev.off()
+b<-c(as.vector(br),as.vector(br4),as.vector(br1),as.vector(br3),as.vector(br2))
+bb<-rep(c("whole","core","ra","int","abd"),each=703)
+kruskal(b,bb,p.adj="fdr",group=T,console=T)
+
+```
+
+The end
