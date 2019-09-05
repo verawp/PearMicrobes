@@ -343,7 +343,7 @@ library(rgdal)
 
 layout(matrix(c(1),1,1)) # optional 16 graphs/page
 
-Orch<-readOGR(dsn="PearShpPrj", layer="PearShpPrj")
+Orch<-readOGR(dsn="PearSitesProject", layer="PearSitesProject")
 summary(Orch)
 Mgt <- factor(Orch@data$mgmt, labels=c("red", "green", "blue"))
 plot(Orch, pch = 19, col = Mgt)
@@ -590,40 +590,52 @@ Next, we partition beta diversity, into overall, abundance driven, and species a
 ```{r}
 library(betapart)
 #BPbactab<-bray.part(BacTab)
-load("~/Desktop/PearMicrobes/BetaPartition.RData")
+#load("~/Desktop/PearMicrobes/BetaPartition.RData")
 
-tu1<-a1$bray.bal/a1$bray
-rh1<-a1$bray.gra/a1$bray
-br1<-a1$bray
+tu1<-BacBray$bray.bal/BacBray$bray
+rh1<-BacBray$bray.gra/BacBray$bray
+br1<-BacBray$bray
 
-tu1<-a1$bray.bal
-rh1<-a1$bray.gra
-br1<-a1$bray
+tu2<-FunBray$bray.bal/FunBray$bray
+rh2<-FunBray$bray.gra/FunBray$bray
+br2<-FunBray$bray
 
-b<-c(as.vector(tu),as.vector(tu4),as.vector(tu1),as.vector(tu3),as.vector(tu2))
-bb<-rep(c("whole","core","ra","int","abd"),each=703)
-kruskal(b,bb,p.adj="fdr",group=T,console=T)
-df<-matrix(NA,ncol=2,nrow=5)
-rownames(df)<-c("Whole","Core","Rare","Intermediate","Abundant")
-df[,1]<-c(mean(tu),mean(tu4),mean(tu1),mean(tu3),mean(tu2))
-df[,2]<-c(mean(rh),mean(rh4),mean(rh1),mean(rh3),mean(rh2))
-df<-df*100
-pdf("beta-partion.pdf",height=5,width=5.5)
-par(mar=c(5,7,2,2))
-barplot(t(df),horiz=T,col=c("grey36","grey60"),las=1,border=NA
-        ,cex.axis=1.2,cex.names=1.2,cex.lab=1.4,xlab="Proportion(%)")
-dev.off()
-cc<-c(mean(br),mean(br4),mean(br1),mean(br3),mean(br2))
-names(cc)<-c("Whole","Core","Rare","Intermediate","Abundant")
-col<-c("darkgreen","red2","darkorange","grey92","cornflowerblue")
-pdf("Beta-diversity.pdf",height=5,width=5.5)
-par(mar=c(5,7,2,2))
-barplot(cc,horiz=T,col=col,las=1,border=NA
-        ,cex.axis=1.2,cex.names=1.2,cex.lab=1.4,xlab="Beta-diversity")
-dev.off()
-b<-c(as.vector(br),as.vector(br4),as.vector(br1),as.vector(br3),as.vector(br2))
-bb<-rep(c("whole","core","ra","int","abd"),each=703)
-kruskal(b,bb,p.adj="fdr",group=T,console=T)
+#tu1<-BacBray$bray.bal
+#rh1<-BacBray$bray.gra
+# #br1<-BacBray$bray
+# 
+# b<-c(as.vector(tu),as.vector(tu4),as.vector(tu1),as.vector(tu3),as.vector(tu2))
+# bb<-rep(c("whole","core","ra","int","abd"),each=703)
+# kruskal(b,bb,p.adj="fdr",group=T,console=T)
+# 
+# df<-matrix(NA,ncol=2,nrow=5)
+# rownames(df)<-c("Whole","Core","Rare","Intermediate","Abundant")
+# df[,1]<-c(mean(tu),mean(tu4),mean(tu1),mean(tu3),mean(tu2))
+# df[,2]<-c(mean(rh),mean(rh4),mean(rh1),mean(rh3),mean(rh2))
+# df<-df*100
+# pdf("beta-partion.pdf",height=5,width=5.5)
+# par(mar=c(5,7,2,2))
+# barplot(t(df),horiz=T,col=c("grey36","grey60"),las=1,border=NA
+#         ,cex.axis=1.2,cex.names=1.2,cex.lab=1.4,xlab="Proportion(%)")
+# 
+# dev.off()
+# 
+# 
+# 
+# cc<-c(mean(br),mean(br4),mean(br1),mean(br3),mean(br2))
+# names(cc)<-c("Whole","Core","Rare","Intermediate","Abundant")
+# 
+# col<-c("darkgreen","red2","darkorange","grey92","cornflowerblue")
+# pdf("Beta-diversity.pdf",height=5,width=5.5)
+# par(mar=c(5,7,2,2))
+# barplot(cc,horiz=T,col=col,las=1,border=NA
+#         ,cex.axis=1.2,cex.names=1.2,cex.lab=1.4,xlab="Beta-diversity")
+# 
+# dev.off()
+# 
+# b<-c(as.vector(br),as.vector(br4),as.vector(br1),as.vector(br3),as.vector(br2))
+# bb<-rep(c("whole","core","ra","int","abd"),each=703)
+# kruskal(b,bb,p.adj="fdr",group=T,console=T)
 
 ```
 
